@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WhatsApp Module</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0f2f5;
+      color: #333;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #25d366, #128c7e);
+      color: #fff;
+      padding: 20px;
+      text-align: center;
+    }
+    .header h1 { font-size: 24px; margin-bottom: 4px; }
+    .header p { font-size: 14px; opacity: 0.9; }
+
+    /* Status bar */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 20px;
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+      font-size: 14px;
+    }
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .status-dot.connected { background: #25d366; }
+    .status-dot.qr_ready { background: #ff9800; animation: pulse 1.5s infinite; }
+    .status-dot.connecting { background: #ff9800; }
+    .status-dot.disconnected { background: #f44336; }
+    .status-dot.error { background: #f44336; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .status-text { flex: 1; }
+    .status-info { color: #666; font-size: 12px; }
+
+    /* Main layout */
+    .container {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 0;
+      height: calc(100vh - 110px);
+    }
+
+    /* QR Panel (left sidebar) */
+    .qr-panel {
+      background: #fff;
+      border-right: 1px solid #e0e0e0;
+      padding: 30px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .qr-panel h2 {
+      font-size: 16px;
+      margin-bottom: 20px;
+      color: #333;
+    }
+    #qrContainer img {
+      width: 220px;
+      height: 220px;
+      border: 4px solid #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+    }
+    .qr-hint {
+      margin-top: 16px;
+      font-size: 13px;
+      color: #666;
+      line-height: 1.5;
+    }
+    .qr-hint ol {
+      text-align: left;
+      margin-top: 8px;
+      padding-left: 20px;
+    }
+    .qr-hint li { margin-bottom: 4px; }
+    .connected-info {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .connected-info .check-icon {
+      font-size: 64px;
+      color: #25d366;
+    }
+    .connected-info .phone-num {
+      font-size: 14px;
+      color: #333;
+      font-weight: 500;
+    }
+    .btn-logout {
+      background: #f44336;
+      color: #fff;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .btn-logout:hover { background: #d32f2f; }
+
+    /* Message Panel (right) */
+    .message-panel {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    /* Chat selector */
+    .chat-selector {
+      padding: 12px 16px;
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .chat-selector .mode-tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .chat-selector .mode-tab {
+      flex: 1;
+      padding: 7px 10px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      background: #f5f5f5;
+      color: #888;
+      border: none;
+      transition: all 0.15s;
+    }
+    .chat-selector .mode-tab.active {
+      background: #25d366;
+      color: #fff;
+    }
+    .chat-selector .mode-tab:first-child {
+      border-right: 1px solid #ddd;
+    }
+    .chat-selector label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #777;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .chat-selector select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 13px;
+      background: #fafafa;
+    }
+    .chat-selector select:focus {
+      outline: none;
+      border-color: #25d366;
+    }
+    .chat-selector input[type="text"] {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      outline: none;
+    }
+    .chat-selector input[type="text"]:focus {
+      border-color: #25d366;
+    }
+    .chat-selector .number-hint {
+      font-size: 11px;
+      color: #999;
+      margin-top: 4px;
+    }
+    .chat-selector .mode-panel {
+      display: none;
+    }
+    .chat-selector .mode-panel.active {
+      display: block;
+    }
+
+    /* Messages area */
+    .messages-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      background: #e5ddd5;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .message-bubble {
+      max-width: 75%;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.4;
+      word-wrap: break-word;
+      position: relative;
+    }
+    .message-bubble.received {
+      align-self: flex-start;
+      background: #fff;
+      border-top-left-radius: 2px;
+    }
+    .message-bubble.sent {
+      align-self: flex-end;
+      background: #dcf8c6;
+      border-top-right-radius: 2px;
+    }
+    .message-meta {
+      font-size: 11px;
+      color: #888;
+      margin-top: 4px;
+      text-align: right;
+    }
+    .message-sender {
+      font-size: 12px;
+      font-weight: 600;
+      color: #128c7e;
+      margin-bottom: 2px;
+    }
+
+    .empty-state {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #999;
+      font-size: 14px;
+      text-align: center;
+      padding: 20px;
+    }
+
+    /* Send bar */
+    .send-bar {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px;
+      background: #fff;
+      border-top: 1px solid #e0e0e0;
+    }
+    .send-bar input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid #ddd;
+      border-radius: 24px;
+      font-size: 14px;
+      outline: none;
+    }
+    .send-bar input:focus {
+      border-color: #25d366;
+    }
+    .send-bar button {
+      background: #25d366;
+      color: #fff;
+      border: none;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .send-bar button:hover { background: #1da851; }
+    .send-bar button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    /* Incoming messages panel (bottom notification area) */
+    .incoming-bar {
+      background: #fff;
+      border-top: 1px solid #e0e0e0;
+      padding: 8px 16px;
+      max-height: 60px;
+      overflow-y: auto;
+      font-size: 12px;
+      color: #666;
+    }
+    .incoming-bar strong { color: #128c7e; }
+
+    /* Error message */
+    .error-msg {
+      background: #ffebee;
+      color: #c62828;
+      padding: 8px 16px;
+      font-size: 13px;
+      display: none;
+    }
+
+    /* Responsive */
+    @media (max-width: 700px) {
+      .container {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+      }
+      .qr-panel {
+        border-right: none;
+        border-bottom: 1px solid #e0e0e0;
+        padding: 20px;
+      }
+      #qrContainer img { width: 180px; height: 180px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <h1>WhatsApp Module</h1>
+    <p>Connect your WhatsApp via QR scan — send & receive messages from your webapp</p>
+  </div>
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <span class="status-dot disconnected" id="statusDot"></span>
+    <span class="status-text" id="statusText">Disconnected</span>
+    <span class="status-info" id="statusInfo"></span>
+  </div>
+
+  <div class="error-msg" id="errorMsg"></div>
+
+  <!-- Main -->
+  <div class="container">
+
+    <!-- QR Panel (Left) -->
+    <div class="qr-panel" id="qrPanel">
+      <h2 id="qrTitle">Scan QR Code to Connect</h2>
+      <div id="qrContainer">
+        <div class="empty-state" style="color:#999;">Waiting for QR code...</div>
+      </div>
+      <div class="qr-hint" id="qrHint">
+        <ol>
+          <li>Open WhatsApp on your phone</li>
+          <li>Tap Menu &gt; Linked Devices &gt; Link a Device</li>
+          <li>Scan this QR code</li>
+        </ol>
+      </div>
+      <div class="connected-info" id="connectedInfo">
+        <div class="check-icon">&#10004;</div>
+        <div class="phone-num">WhatsApp Connected</div>
+        <button class="btn-logout" onclick="logout()">Disconnect</button>
+      </div>
+    </div>
+
+    <!-- Message Panel (Right) -->
+    <div class="message-panel">
+      <div class="chat-selector">
+        <div class="mode-tabs">
+          <button class="mode-tab active" data-mode="contacts" onclick="switchMode('contacts')">Contacts</button>
+          <button class="mode-tab" data-mode="number" onclick="switchMode('number')">New Number</button>
+        </div>
+
+        <!-- Contacts panel -->
+        <div class="mode-panel active" id="panel-contacts">
+          <label for="chatSelect">Select a contact:</label>
+          <select id="chatSelect">
+            <option value="">-- Select a contact --</option>
+          </select>
+        </div>
+
+        <!-- New Number panel -->
+        <div class="mode-panel" id="panel-number">
+          <label for="phoneInput">Phone number:</label>
+          <input type="text" id="phoneInput" placeholder="e.g. 919876543210" />
+          <div class="number-hint">Include country code. No leading + or 00. Example: 919876543210 (India +91)</div>
+        </div>
+      </div>
+
+      <div class="messages-area" id="messagesArea">
+        <div class="empty-state">Connect WhatsApp to start sending and receiving messages</div>
+      </div>
+
+      <div class="incoming-bar" id="incomingBar">
+        <em>Incoming messages will appear here in real-time...</em>
+      </div>
+
+      <div class="send-bar">
+        <input type="text" id="msgInput" placeholder="Type a message..." disabled />
+        <button id="sendBtn" disabled title="Send">&#10148;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Socket.IO client -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    // ── DOM refs ────────────────────────────────────────────────
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const statusInfo = document.getElementById('statusInfo');
+    const errorMsg = document.getElementById('errorMsg');
+    const qrContainer = document.getElementById('qrContainer');
+    const qrTitle = document.getElementById('qrTitle');
+    const qrHint = document.getElementById('qrHint');
+    const connectedInfo = document.getElementById('connectedInfo');
+    const chatSelect = document.getElementById('chatSelect');
+    const phoneInput = document.getElementById('phoneInput');
+    const messagesArea = document.getElementById('messagesArea');
+    const incomingBar = document.getElementById('incomingBar');
+    const msgInput = document.getElementById('msgInput');
+    const sendBtn = document.getElementById('sendBtn');
+
+    let currentChatId = '';
+    let currentMode = 'contacts'; // 'contacts' | 'number'
+    let isConnected = false;
+
+    // ── Mode switching ──────────────────────────────────────────
+
+    function switchMode(mode) {
+      currentMode = mode;
+      document.querySelectorAll('.mode-tab').forEach((tab) => {
+        tab.classList.toggle('active', tab.dataset.mode === mode);
+      });
+      document.querySelectorAll('.mode-panel').forEach((panel) => {
+        panel.classList.toggle('active', panel.id === 'panel-' + mode);
+      });
+      // Clear stale state
+      if (mode === 'number') {
+        currentChatId = '';
+        messagesArea.innerHTML = '<div class="empty-state">Type a number and send a message to start a new conversation</div>';
+      }
+    }
+
+    // ── Socket events ──────────────────────────────────────────
+
+    socket.on('status', (status) => {
+      updateUI(status);
+    });
+
+    socket.on('qr_update', (qrDataUrl) => {
+      showQR(qrDataUrl);
+    });
+
+    socket.on('message', (msg) => {
+      // Show incoming message notification
+      const sender = msg.fromName || msg.from;
+      const preview = msg.body.length > 60 ? msg.body.substring(0, 60) + '...' : msg.body;
+      incomingBar.innerHTML = `<strong>${sender}:</strong> ${preview} <em style="color:#999;">(${new Date(msg.timestamp * 1000).toLocaleTimeString()})</em>`;
+
+      // If viewing this chat, append the message
+      if (currentChatId === msg.from) {
+        appendMessage(msg, false);
+      }
+    });
+
+    // ── UI Updates ─────────────────────────────────────────────
+
+    function updateUI(status) {
+      const dot = statusDot;
+      dot.className = 'status-dot ' + status.status;
+
+      switch (status.status) {
+        case 'disconnected':
+          statusText.textContent = 'Disconnected';
+          statusInfo.textContent = 'Starting...';
+          isConnected = false;
+          showQRPanel(false);
+          setSendEnabled(false);
+          break;
+
+        case 'connecting':
+          statusText.textContent = 'Connecting...';
+          statusInfo.textContent = 'Launching browser';
+          isConnected = false;
+          showQRPanel(false);
+          setSendEnabled(false);
+          break;
+
+        case 'qr_ready':
+          statusText.textContent = 'Scan QR Code';
+          statusInfo.textContent = 'Waiting for phone scan...';
+          isConnected = false;
+          showQRPanel(true);
+          setSendEnabled(false);
+          if (status.qrCode) showQR(status.qrCode);
+          break;
+
+        case 'connected':
+          statusText.textContent = 'Connected';
+          statusInfo.textContent = 'WhatsApp is active';
+          isConnected = true;
+          showQRPanel(true);
+          setSendEnabled(true);
+          // Load chats
+          loadChats();
+          break;
+
+        case 'error':
+          statusText.textContent = 'Error';
+          statusInfo.textContent = status.lastError || 'Unknown error';
+          isConnected = false;
+          errorMsg.textContent = 'Error: ' + (status.lastError || 'Unknown');
+          errorMsg.style.display = 'block';
+          setTimeout(() => { errorMsg.style.display = 'none'; }, 8000);
+          break;
+      }
+    }
+
+    function showQRPanel(showQr) {
+      if (showQr) {
+        // The panel is always visible; we toggle what's inside
+      }
+    }
+
+    function showQR(dataUrl) {
+      qrContainer.innerHTML = `<img src="${dataUrl}" alt="QR Code" />`;
+      qrTitle.textContent = 'Scan QR Code to Connect';
+      qrHint.style.display = 'block';
+      connectedInfo.style.display = 'none';
+    }
+
+    function showConnected() {
+      qrContainer.innerHTML = '';
+      qrTitle.textContent = 'WhatsApp Connected';
+      qrHint.style.display = 'none';
+      connectedInfo.style.display = 'flex';
+    }
+
+    function setSendEnabled(enabled) {
+      msgInput.disabled = !enabled;
+      sendBtn.disabled = !enabled;
+    }
+
+    // ── Chat loading ───────────────────────────────────────────
+
+    async function loadChats() {
+      try {
+        const res = await fetch('/api/chats?limit=50');
+        const data = await res.json();
+        if (!data.success) return;
+
+        chatSelect.innerHTML = '<option value="">-- Select a chat --</option>';
+        for (const chat of data.data) {
+          const opt = document.createElement('option');
+          opt.value = chat.id;
+          opt.textContent = chat.name || chat.id;
+          opt.title = chat.lastMessage || '';
+          chatSelect.appendChild(opt);
+        }
+
+        // Show connected state in QR panel
+        showConnected();
+      } catch (err) {
+        console.error('Failed to load chats:', err);
+      }
+    }
+
+    chatSelect.addEventListener('change', () => {
+      currentChatId = chatSelect.value;
+      if (currentChatId) {
+        loadMessages(currentChatId);
+      } else {
+        messagesArea.innerHTML = '<div class="empty-state">Select a chat to view messages</div>';
+      }
+    });
+
+    async function loadMessages(chatId) {
+      try {
+        const res = await fetch(`/api/chats/${encodeURIComponent(chatId)}/msgs?limit=50`);
+        const data = await res.json();
+        if (!data.success) return;
+
+        messagesArea.innerHTML = '';
+        for (const msg of data.data) {
+          appendMessage(msg, msg.fromMe);
+        }
+        messagesArea.scrollTop = messagesArea.scrollHeight;
+      } catch (err) {
+        console.error('Failed to load messages:', err);
+      }
+    }
+
+    function appendMessage(msg, fromMe) {
+      // Remove empty state
+      const empty = messagesArea.querySelector('.empty-state');
+      if (empty) empty.remove();
+
+      const bubble = document.createElement('div');
+      bubble.className = 'message-bubble ' + (fromMe ? 'sent' : 'received');
+
+      let html = '';
+      if (!fromMe && msg.fromName) {
+        html += `<div class="message-sender">${msg.fromName}</div>`;
+      }
+      html += `<div>${escapeHtml(msg.body || '(media message)')}</div>`;
+      html += `<div class="message-meta">${new Date(msg.timestamp * 1000).toLocaleTimeString()}</div>`;
+
+      bubble.innerHTML = html;
+      messagesArea.appendChild(bubble);
+      messagesArea.scrollTop = messagesArea.scrollHeight;
+    }
+
+    // ── Sending messages ───────────────────────────────────────
+
+    msgInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
+
+    phoneInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && phoneInput.value.trim()) {
+        switchMode('contacts');
+        // Don't auto-send, just move focus to message input
+        msgInput.focus();
+      }
+    });
+
+    sendBtn.addEventListener('click', sendMessage);
+
+    async function sendMessage() {
+      const body = msgInput.value.trim();
+      if (!body) return;
+
+      // Determine recipient
+      let to = '';
+      if (currentMode === 'contacts') {
+        to = chatSelect.value;
+        if (!to) {
+          alert('Select a contact from the list first.');
+          return;
+        }
+      } else {
+        // New Number mode
+        to = phoneInput.value.trim().replace(/[^0-9]/g, '');
+        if (!to) {
+          alert('Enter a phone number (with country code, no +).');
+          return;
+        }
+      }
+
+      msgInput.value = '';
+
+      try {
+        const res = await fetch('/api/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to, body }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          // Append sent message locally
+          const displayName = currentMode === 'number'
+            ? to
+            : chatSelect.options[chatSelect.selectedIndex]?.text || to;
+          appendMessage({
+            body,
+            timestamp: Math.floor(Date.now() / 1000),
+            fromMe: true,
+            fromName: 'Me',
+          }, true);
+          // If in number mode, show a success note
+          if (currentMode === 'number') {
+            incomingBar.innerHTML = `<strong>Sent to ${to}:</strong> ${body.substring(0, 60)}`;
+          }
+        } else {
+          alert('Error: ' + data.error);
+        }
+      } catch (err) {
+        alert('Failed to send: ' + err.message);
+      }
+    }
+
+    // ── Logout ─────────────────────────────────────────────────
+
+    async function logout() {
+      if (!confirm('Disconnect WhatsApp?')) return;
+      try {
+        await fetch('/api/logout', { method: 'POST' });
+      } catch (_) {}
+    }
+
+    // ── Utility ─────────────────────────────────────────────────
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Initial status fetch
+    fetch('/api/status')
+      .then((r) => r.json())
+      .then((status) => updateUI(status))
+      .catch(() => {});
+  </script>
+
+</body>
+</html>
