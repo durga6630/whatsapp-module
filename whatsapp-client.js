@@ -51,7 +51,7 @@ class WhatsAppClient {
 
       puppeteer: {
         executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-        headless: true,
+        headless: "shell",
 
         args: [
           '--no-sandbox',
@@ -128,13 +128,13 @@ class WhatsAppClient {
     this.client.on('disconnected', (reason) => {
       this.isReady = false;
       this.connectionStatus = 'disconnected';
+      this.qrCodeData = null;
+      this.qrCodeString = null;
       this._emitStatus();
       console.log('WhatsApp disconnected:', reason);
 
-      // Auto-restart on unexpected disconnects (after a delay)
-      if (reason !== 'LOGOUT' && reason !== 'NAVIGATION') {
-        this._scheduleRestart();
-      }
+      // Don't auto-restart — just show QR again if user wants to reconnect
+      // Scans and crashes would cause a restart loop
     });
 
     // ── Incoming messages ──────────────────────────────────────
